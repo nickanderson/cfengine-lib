@@ -1,6 +1,6 @@
 body file control
 {
-        namespace => "nickanderson_cfengine_lib"
+        namespace => "nickanderson_cfengine_lib";
 }
 
 bundle agent splay_bundle_hourly( usebundle, hrs )
