@@ -1,0 +1,80 @@
+body file control
+{
+        namespace => "nickanderson_cfengine_lib"
+}
+
+bundle agent splay_bundle_hourly( usebundle, hrs )
+# @brief splay the run of usebundle across hrs
+# @param usebundle Agent bundle taking no parameters that should be run via
+#                  methods call when hr slot arrives
+# @param hrs A list or data container of hours that the bundle should be run
+#            during [ 00-23 ]. There may be no more than 23 entries and no entry
+#            may be larger than 23.
+#
+# **Example:**
+# ```cf3
+# bundle agent main
+# {
+#   vars:
+#
+#       "hrs" slist => { "00", "17", "18" };
+#       "hrs" data => '[ "00", "17", "19" ]';
+#
+#   methods:
+#
+#       "Splay bundle over hours"
+#         usebundle => splay_bundle_hourly( "mybundle", @(hrs) );
+# }
+# ```
+{
+  vars:
+
+      # We map classes that identify the cohort group to a string matching the
+      # class matching the class for the appropriate hour of the day.
+
+      "cohort[$(this.bundle)_bucket_Hr$(hrs)]" string => "Hr$(hrs)";
+      "c" slist => sort( getindices(cohort), lex );
+
+  classes:
+      "bucket_selected"
+        select_class => { @(c) };
+
+  reports:
+    "inform_mode|inform_$(this.bundle)"::
+
+      "splay class '$(with)' selected"
+        with => join(", ", classesmatching("$(this.bundle)_.*") );
+
+      "Should call bundle '$(usebundle)' for splay class '$(this.bundle)_bucket_Hr$(hrs)' because Hr$(hrs) is defined"
+        if => "Hr$(hrs).$(cohort[$(this.bundle)_bucket_Hr$(hrs)])";
+
+   # Warning users and guard against mis-use
+
+   classes:
+     # There are only 23 hours in the day to spread out across if we are given a value larger then things won't happen as expected.
+     "error_invalid_hr_large" expression => isgreaterthan( $(hrs), "23" );
+     "error_invalid_hr_too_many" expression => isgreaterthan( length( hrs ), 23 );
+     "error_invalid_hr" or => { "error_invalid_hr_large", "error_invalid_hr_too_many" };
+
+   reports:
+
+     error_invalid_hr::
+
+       "ERROR: Invalid usage of $(this.bundle). Skipping actuation of bundle '$(usebundle)'";
+
+     error_invalid_hr_large::
+
+       "ERROR: At least one of the hours is larger than 23, invalid paramater value for $(this.bundle)";
+
+     error_invalid_hr_too_many::
+
+       "ERROR: More than 23 hours selected to splay across, invalid parameter lenth for `hrs` in $(this.bundle)";
+
+   methods:
+
+    !error_invalid_hr::
+
+      "call bundle"
+        usebundle => "$(usebundle)",
+        if => "Hr$(hrs).$(cohort[$(this.bundle)_bucket_Hr$(hrs)])";
+}

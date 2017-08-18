@@ -1,0 +1,28 @@
+#+Title: cfengine-lib
+
+Useful re-usable bodies and bundles
+
+* [[./policy/main.cf][=splay_bundle_hourly( usebundle, hrs )=]] 
+
+Automatically splay the execution of =usebundle= across =hrs=. Each Hr a
+deterministic (but not pre-determined) group of hosts will run the bundle
+=usebundle= during the Hr. Each host is guarenteed to select one hour during
+which the bundle will be run.
+
+ Splay the run of .
+
+#+BEGIN_SRC cfengine3
+ bundle agent main
+ {
+   vars:
+
+       # Specify a list of hours
+       "hrs" slist => { "00", "17", "18" };
+       "hrs" data => '[ "00", "17", "19" ]';
+
+   methods:
+
+       "Splay bundle over hours"
+         usebundle => splay_bundle_hourly( "mybundle", @(hrs) );
+ }
+#+END_SRC
